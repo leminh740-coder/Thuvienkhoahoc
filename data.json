@@ -1,30 +1,4 @@
 {
-  "updatedAt": 1787623541506,
-  "courses": [
-    {
-      "id": 1787622180480,
-      "name": "khóa blender",
-      "open": true,
-      "groups": []
-    },
-    {
-      "id": 1787622658158,
-      "name": "vẽ chibi",
-      "open": true,
-      "groups": [
-        {
-          "id": 1787622677356,
-          "name": "khóa số 1",
-          "open": true,
-          "links": []
-        },
-        {
-          "id": 1787623538892,
-          "name": "khóa số 2",
-          "open": true,
-          "links": []
-        }
-      ]
-    }
-  ]
+  "updatedAt": 1787623664773,
+  "courses": []
 }
