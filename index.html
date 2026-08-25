@@ -24,8 +24,10 @@
   }
   .wrap{max-width:800px;margin:0 auto}
   h1{font-size:28px;font-weight:700;margin-bottom:6px}
-  .sub{color:var(--muted);font-size:14px;margin-bottom:28px}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:4px}
   .sub b{color:var(--navy)}
+  .source{font-size:12px;color:var(--muted);margin-bottom:24px}
+  .source.warn{color:var(--red)}
 
   .panel{
     border:1px solid var(--border);
@@ -161,6 +163,7 @@
 <div class="wrap">
   <h1>Thư viện khóa học</h1>
   <p class="sub"><b id="statCourses">0</b> khóa · <b id="statGroups">0</b> phần · <b id="statLinks">0</b> link · bấm tên để mở</p>
+  <p class="source" id="sourceInfo">Đang tải dữ liệu...</p>
 
   <div class="panel">
     <div class="panel-title">Thêm khóa học</div>
@@ -173,7 +176,7 @@
   <input type="text" class="search" id="searchBox" placeholder="Tìm nhanh khóa, phần hoặc bài học..." oninput="render()">
 
   <div class="toolbar">
-    <button class="btn-ghost" onclick="exportJSON()">Xuất file sao lưu (.json)</button>
+    <button class="btn-ghost" onclick="exportJSON()">Xuất file du-lieu.json</button>
     <button class="btn-ghost" onclick="document.getElementById('importFile').click()">Nhập file sao lưu</button>
     <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
   </div>
@@ -182,44 +185,115 @@
 </div>
 
 <script>
-const STORE_KEY = "thuVienKhoaHoc_v1";
-let data = load();
+const STORE_KEY = "thuVienKhoaHoc_v2";
+const OLD_KEY = "thuVienKhoaHoc_v1";
+const DATA_FILE = "du-lieu.json"; // file dữ liệu nằm cùng thư mục với index.html trong repo
 
-function load(){
-  try{
-    const raw = localStorage.getItem(STORE_KEY);
-    if(!raw) return [];
-    let parsed = JSON.parse(raw);
-    if(!Array.isArray(parsed)) return [];
-    // Di chuyển dữ liệu từ bản cũ (khóa → link) sang bản mới (khóa → phần → link)
-    parsed.forEach(c => {
-      if(!Array.isArray(c.groups)){
-        c.groups = [];
-        if(Array.isArray(c.links) && c.links.length > 0){
-          c.groups.push({ id: Date.now() + Math.floor(Math.random()*1000), name: "Danh sách bài", open: true, links: c.links });
-        }
-        delete c.links;
+let store = { updatedAt: 0, courses: [] };
+let dirty = false; // có thay đổi chưa upload
+
+/* ---------- Chuẩn hóa dữ liệu ---------- */
+function normalizeCourses(courses){
+  if(!Array.isArray(courses)) return [];
+  courses.forEach(c => {
+    if(!Array.isArray(c.groups)){
+      c.groups = [];
+      if(Array.isArray(c.links) && c.links.length > 0){
+        c.groups.push({ id: newId(), name: "Danh sách bài", open: true, links: c.links });
       }
-    });
-    return parsed;
-  }catch(e){ return []; }
+      delete c.links;
+    }
+    c.groups.forEach(g => { if(!Array.isArray(g.links)) g.links = []; });
+  });
+  return courses;
+}
+function parseAny(raw){
+  // Chấp nhận cả 2 dạng: mảng cũ [...] hoặc dạng mới {updatedAt, courses}
+  if(Array.isArray(raw)) return { updatedAt: 0, courses: normalizeCourses(raw) };
+  if(raw && Array.isArray(raw.courses)){
+    return { updatedAt: Number(raw.updatedAt) || 0, courses: normalizeCourses(raw.courses) };
+  }
+  return null;
+}
+
+/* ---------- Nạp dữ liệu: máy + GitHub, bản nào mới hơn thì dùng ---------- */
+function loadLocal(){
+  try{
+    let raw = localStorage.getItem(STORE_KEY);
+    if(!raw){
+      // Chuyển từ bản cũ nếu có
+      const old = localStorage.getItem(OLD_KEY);
+      if(old){
+        const p = parseAny(JSON.parse(old));
+        if(p){ p.updatedAt = 1; return p; }
+      }
+      return null;
+    }
+    return parseAny(JSON.parse(raw));
+  }catch(e){ return null; }
+}
+async function loadRemote(){
+  try{
+    const res = await fetch(DATA_FILE + "?t=" + Date.now(), { cache: "no-store" });
+    if(!res.ok) return null;
+    return parseAny(await res.json());
+  }catch(e){ return null; }
+}
+async function init(){
+  const local = loadLocal();
+  const remote = await loadRemote();
+  const info = document.getElementById("sourceInfo");
+
+  if(remote && (!local || remote.updatedAt >= local.updatedAt)){
+    store = remote;
+    saveLocalOnly();
+    dirty = false;
+    info.textContent = "Dữ liệu: bản trên GitHub (" + fmtTime(store.updatedAt) + ")";
+  }else if(local){
+    store = local;
+    if(remote && local.updatedAt > remote.updatedAt){
+      dirty = true;
+      info.textContent = "Dữ liệu trong máy MỚI HƠN bản trên GitHub — nhớ Xuất file rồi upload đè du-lieu.json.";
+      info.classList.add("warn");
+    }else{
+      info.textContent = "Dữ liệu: bản trong máy" + (remote ? "" : " (chưa tải được du-lieu.json từ repo)");
+    }
+  }else{
+    info.textContent = "Chưa có dữ liệu. Thêm khóa học đầu tiên, sau đó Xuất file và upload du-lieu.json lên repo.";
+  }
+  render();
+}
+function fmtTime(t){
+  if(!t) return "chưa rõ thời gian";
+  const d = new Date(t);
+  return d.toLocaleDateString("vi-VN") + " " + d.toLocaleTimeString("vi-VN", {hour:"2-digit", minute:"2-digit"});
+}
+
+/* ---------- Lưu ---------- */
+function saveLocalOnly(){
+  localStorage.setItem(STORE_KEY, JSON.stringify(store));
 }
 function save(){
-  localStorage.setItem(STORE_KEY, JSON.stringify(data));
+  store.updatedAt = Date.now();
+  saveLocalOnly();
+  dirty = true;
+  const info = document.getElementById("sourceInfo");
+  info.textContent = "Có thay đổi chưa đưa lên GitHub — bấm Xuất file rồi upload đè du-lieu.json vào repo.";
+  info.classList.add("warn");
 }
-function findCourse(cid){ return data.find(x => x.id === cid); }
+function newId(){ return Date.now() + Math.floor(Math.random()*1000); }
+function findCourse(cid){ return store.courses.find(x => x.id === cid); }
 function findGroup(cid, gid){
   const c = findCourse(cid);
   return c ? c.groups.find(g => g.id === gid) : null;
 }
-function newId(){ return Date.now() + Math.floor(Math.random()*1000); }
 
 /* ===== Tầng 1: Khóa học ===== */
 function addCourse(){
   const inp = document.getElementById("newCourseName");
   const name = inp.value.trim();
   if(!name){ alert("Nhập tên khóa học trước đã."); return; }
-  data.push({ id: newId(), name: name, open: true, groups: [] });
+  store.courses.push({ id: newId(), name: name, open: true, groups: [] });
   inp.value = "";
   save(); render();
 }
@@ -228,7 +302,7 @@ function deleteCourse(cid){
   if(!c) return;
   const total = c.groups.reduce((s,g) => s + g.links.length, 0);
   if(!confirm('Xóa khóa "' + c.name + '" gồm ' + c.groups.length + ' phần và ' + total + ' link?')) return;
-  data = data.filter(x => x.id !== cid);
+  store.courses = store.courses.filter(x => x.id !== cid);
   save(); render();
 }
 function renameCourse(cid){
@@ -241,7 +315,7 @@ function toggleCourse(cid){
   const c = findCourse(cid);
   if(!c) return;
   c.open = !c.open;
-  save(); render();
+  saveLocalOnly(); render(); // mở/đóng không tính là thay đổi dữ liệu
 }
 
 /* ===== Tầng 2: Phần ===== */
@@ -273,7 +347,7 @@ function toggleGroup(cid, gid){
   const g = findGroup(cid, gid);
   if(!g) return;
   g.open = !g.open;
-  save(); render();
+  saveLocalOnly(); render();
 }
 
 /* ===== Tầng 3: Link ===== */
@@ -305,15 +379,20 @@ function deleteLink(cid, gid, lid){
   save(); render();
 }
 
-/* ===== Sao lưu ===== */
+/* ===== Xuất / Nhập ===== */
 function exportJSON(){
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+  store.updatedAt = Date.now();
+  saveLocalOnly();
+  const blob = new Blob([JSON.stringify(store, null, 2)], {type:"application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  const d = new Date();
-  a.download = "thu-vien-khoa-hoc-" + d.toISOString().slice(0,10) + ".json";
+  a.download = "du-lieu.json";
   a.click();
   URL.revokeObjectURL(a.href);
+  dirty = false;
+  const info = document.getElementById("sourceInfo");
+  info.textContent = "Đã xuất du-lieu.json — giờ upload file này vào repo (Add file → Upload files) để mọi máy đều thấy.";
+  info.classList.remove("warn");
 }
 function importJSON(ev){
   const file = ev.target.files[0];
@@ -321,20 +400,10 @@ function importJSON(ev){
   const reader = new FileReader();
   reader.onload = function(e){
     try{
-      const imported = JSON.parse(e.target.result);
-      if(!Array.isArray(imported)) throw new Error("Sai định dạng");
-      if(!confirm("Nhập " + imported.length + " khóa học từ file? Dữ liệu hiện tại sẽ bị thay thế.")) return;
-      // Cho phép nhập cả file sao lưu bản cũ
-      imported.forEach(c => {
-        if(!Array.isArray(c.groups)){
-          c.groups = [];
-          if(Array.isArray(c.links) && c.links.length > 0){
-            c.groups.push({ id: newId(), name: "Danh sách bài", open: true, links: c.links });
-          }
-          delete c.links;
-        }
-      });
-      data = imported;
+      const parsed = parseAny(JSON.parse(e.target.result));
+      if(!parsed) throw new Error("Sai định dạng");
+      if(!confirm("Nhập " + parsed.courses.length + " khóa học từ file? Dữ liệu hiện tại sẽ bị thay thế.")) return;
+      store = parsed;
       save(); render();
     }catch(err){
       alert("File không đúng định dạng sao lưu của trang này.");
@@ -356,9 +425,8 @@ function render(){
   let html = "";
   let shownCourses = 0;
 
-  data.forEach((c, ci) => {
+  store.courses.forEach((c, ci) => {
     const matchCourse = c.name.toLowerCase().includes(q);
-    // Lọc theo từ khóa: giữ phần khớp tên, hoặc phần có link khớp
     let groups = c.groups;
     if(q && !matchCourse){
       groups = c.groups
@@ -429,7 +497,6 @@ function render(){
         + '</div></div>';
     });
 
-    // Thêm phần mới vào khóa
     html += '<div class="addbox">'
       + '<div class="row">'
       +   '<input type="text" id="groupName-' + c.id + '" placeholder="Tên phần mới (vd: Chương 1, Phần cơ bản...)">'
@@ -443,7 +510,7 @@ function render(){
       + '</div></div>';
   });
 
-  if(data.length === 0){
+  if(store.courses.length === 0){
     html = '<div class="empty">Chưa có khóa học nào. Thêm khóa đầu tiên ở ô phía trên.</div>';
   }else if(shownCourses === 0){
     html = '<div class="empty">Không tìm thấy gì khớp với "' + esc(q) + '".</div>';
@@ -452,11 +519,11 @@ function render(){
   list.innerHTML = html;
 
   let totalGroups = 0, totalLinks = 0;
-  data.forEach(c => {
+  store.courses.forEach(c => {
     totalGroups += c.groups.length;
     c.groups.forEach(g => totalLinks += g.links.length);
   });
-  document.getElementById("statCourses").textContent = data.length;
+  document.getElementById("statCourses").textContent = store.courses.length;
   document.getElementById("statGroups").textContent = totalGroups;
   document.getElementById("statLinks").textContent = totalLinks;
 }
@@ -470,14 +537,19 @@ document.addEventListener("keydown", e => {
   if(e.key !== "Enter") return;
   if(id.startsWith("linkUrl-")){
     const gid = Number(id.replace("linkUrl-",""));
-    const c = data.find(c => c.groups.some(g => g.id === gid));
+    const c = store.courses.find(c => c.groups.some(g => g.id === gid));
     if(c) addLink(c.id, gid);
   }else if(id.startsWith("groupName-")){
     addGroup(Number(id.replace("groupName-","")));
   }
 });
 
-render();
+/* Nhắc khi đóng trang mà chưa upload */
+window.addEventListener("beforeunload", e => {
+  if(dirty){ e.preventDefault(); e.returnValue = ""; }
+});
+
+init();
 </script>
 </body>
 </html>
