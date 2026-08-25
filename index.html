@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thư viện khóa học</title>
+<style>
+  :root{
+    --navy:#1f2d4d;
+    --blue:#2f4b7c;
+    --blue-dark:#243a61;
+    --red:#c0392b;
+    --border:#d9dee8;
+    --bg:#ffffff;
+    --muted:#6b7488;
+    --card-shadow:0 1px 3px rgba(31,45,77,.08);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--navy);
+    padding:40px 16px 80px;
+  }
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font-size:28px;font-weight:700;margin-bottom:6px}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:28px}
+  .sub b{color:var(--navy)}
+
+  .panel{
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:18px;
+    margin-bottom:22px;
+    box-shadow:var(--card-shadow);
+  }
+  .panel-title{
+    font-size:12px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--blue);margin-bottom:12px;
+  }
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  input[type=text]{
+    flex:1;min-width:180px;
+    padding:10px 12px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    font-size:14px;
+    color:var(--navy);
+  }
+  input[type=text]:focus{outline:2px solid var(--blue);outline-offset:1px;border-color:var(--blue)}
+  .hint{font-size:12px;color:var(--muted);margin-top:8px}
+
+  button{
+    border:none;border-radius:8px;
+    padding:10px 18px;
+    font-size:14px;font-weight:600;
+    cursor:pointer;
+  }
+  .btn-blue{background:var(--blue);color:#fff}
+  .btn-blue:hover{background:var(--blue-dark)}
+  .btn-ghost{background:transparent;color:var(--blue);border:1px solid var(--border)}
+  .btn-ghost:hover{border-color:var(--blue)}
+  .btn-del{background:transparent;color:var(--red);font-weight:600;padding:6px 10px}
+  .btn-del:hover{text-decoration:underline}
+  button:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+
+  .search{width:100%;margin-bottom:22px}
+
+  /* Khóa học */
+  .course{
+    border:1px solid var(--border);
+    border-radius:10px;
+    margin-bottom:14px;
+    box-shadow:var(--card-shadow);
+    overflow:hidden;
+  }
+  .course-head{
+    display:flex;align-items:center;gap:12px;
+    padding:14px 16px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .course-head:hover{background:#f6f8fb}
+  .course-num{
+    color:var(--muted);font-size:13px;min-width:20px;text-align:right;
+  }
+  .caret{
+    width:0;height:0;
+    border-left:6px solid var(--blue);
+    border-top:5px solid transparent;
+    border-bottom:5px solid transparent;
+    transition:transform .15s;
+    flex-shrink:0;
+  }
+  .course.open .caret{transform:rotate(90deg)}
+  .course-name{font-weight:700;font-size:16px;flex:1}
+  .course-count{
+    font-size:12px;color:var(--blue);
+    background:#eef2f9;
+    border-radius:999px;
+    padding:3px 10px;
+    white-space:nowrap;
+  }
+  .course-body{display:none;border-top:1px solid var(--border);padding:14px 16px 16px}
+  .course.open .course-body{display:block}
+
+  .link-item{
+    display:flex;align-items:flex-start;gap:10px;
+    padding:10px 0;
+    border-bottom:1px solid #eef1f6;
+  }
+  .link-item:last-of-type{border-bottom:none}
+  .link-num{color:var(--muted);font-size:13px;min-width:20px;text-align:right;padding-top:2px}
+  .link-info{flex:1;min-width:0}
+  .link-info a{
+    color:var(--navy);font-weight:600;font-size:14px;text-decoration:none;
+  }
+  .link-info a:hover{color:var(--blue);text-decoration:underline}
+  .link-url{
+    font-size:12px;color:var(--muted);
+    word-break:break-all;margin-top:2px;
+  }
+
+  .addlink{
+    margin-top:12px;padding-top:12px;
+    border-top:1px dashed var(--border);
+  }
+  .addlink .row{margin-bottom:0}
+  .course-actions{
+    margin-top:12px;text-align:right;
+  }
+
+  .toolbar{
+    display:flex;gap:10px;justify-content:flex-end;
+    margin-bottom:22px;flex-wrap:wrap;
+  }
+  .empty{
+    text-align:center;color:var(--muted);
+    padding:40px 0;font-size:14px;
+  }
+  @media (max-width:520px){
+    .row{flex-direction:column}
+    button{width:100%}
+    .btn-del{width:auto}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Thư viện khóa học</h1>
+  <p class="sub"><b id="statCourses">0</b> khóa học · <b id="statLinks">0</b> link · bấm tên khóa để mở danh sách bài</p>
+
+  <div class="panel">
+    <div class="panel-title">Thêm khóa học</div>
+    <div class="row">
+      <input type="text" id="newCourseName" placeholder="Tên khóa học (vd: Blender cơ bản)">
+      <button class="btn-blue" onclick="addCourse()">Thêm khóa</button>
+    </div>
+  </div>
+
+  <input type="text" class="search" id="searchBox" placeholder="Tìm nhanh khóa học hoặc bài học..." oninput="render()">
+
+  <div class="toolbar">
+    <button class="btn-ghost" onclick="exportJSON()">Xuất file sao lưu (.json)</button>
+    <button class="btn-ghost" onclick="document.getElementById('importFile').click()">Nhập file sao lưu</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
+  </div>
+
+  <div id="courseList"></div>
+</div>
+
+<script>
+const STORE_KEY = "thuVienKhoaHoc_v1";
+let data = load();
+
+function load(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  }catch(e){ return []; }
+}
+function save(){
+  localStorage.setItem(STORE_KEY, JSON.stringify(data));
+}
+
+/* ---------- Khóa học ---------- */
+function addCourse(){
+  const inp = document.getElementById("newCourseName");
+  const name = inp.value.trim();
+  if(!name){ alert("Nhập tên khóa học trước đã."); return; }
+  data.push({ id: Date.now(), name: name, open: true, links: [] });
+  inp.value = "";
+  save(); render();
+}
+function deleteCourse(cid){
+  const c = data.find(x => x.id === cid);
+  if(!c) return;
+  if(!confirm('Xóa khóa "' + c.name + '" và toàn bộ ' + c.links.length + ' link bên trong?')) return;
+  data = data.filter(x => x.id !== cid);
+  save(); render();
+}
+function renameCourse(cid){
+  const c = data.find(x => x.id === cid);
+  if(!c) return;
+  const name = prompt("Tên mới cho khóa học:", c.name);
+  if(name && name.trim()){ c.name = name.trim(); save(); render(); }
+}
+function toggleCourse(cid){
+  const c = data.find(x => x.id === cid);
+  if(!c) return;
+  c.open = !c.open;
+  save(); render();
+}
+
+/* ---------- Link ---------- */
+function addLink(cid){
+  const c = data.find(x => x.id === cid);
+  if(!c) return;
+  const nameInp = document.getElementById("linkName-" + cid);
+  const urlInp  = document.getElementById("linkUrl-" + cid);
+  let url = urlInp.value.trim();
+  if(!url){ alert("Nhập link trước đã."); return; }
+  if(!/^https?:\/\//i.test(url)) url = "https://" + url;
+  let title = nameInp.value.trim();
+  if(!title){
+    // Bỏ trống tên thì lấy tên từ link
+    try{
+      const u = new URL(url);
+      const parts = u.pathname.split("/").filter(Boolean);
+      title = decodeURIComponent(parts[parts.length - 1] || u.hostname);
+      title = title.replace(/[-_]+/g, " ");
+    }catch(e){ title = url; }
+  }
+  c.links.push({ id: Date.now(), title: title, url: url });
+  nameInp.value = ""; urlInp.value = "";
+  save(); render();
+}
+function deleteLink(cid, lid){
+  const c = data.find(x => x.id === cid);
+  if(!c) return;
+  c.links = c.links.filter(l => l.id !== lid);
+  save(); render();
+}
+
+/* ---------- Sao lưu ---------- */
+function exportJSON(){
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  const d = new Date();
+  a.download = "thu-vien-khoa-hoc-" + d.toISOString().slice(0,10) + ".json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function importJSON(ev){
+  const file = ev.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const imported = JSON.parse(e.target.result);
+      if(!Array.isArray(imported)) throw new Error("Sai định dạng");
+      if(!confirm("Nhập " + imported.length + " khóa học từ file? Dữ liệu hiện tại sẽ bị thay thế.")) return;
+      data = imported;
+      save(); render();
+    }catch(err){
+      alert("File không đúng định dạng sao lưu của trang này.");
+    }
+  };
+  reader.readAsText(file);
+  ev.target.value = "";
+}
+
+/* ---------- Hiển thị ---------- */
+function esc(s){
+  return String(s).replace(/[&<>"']/g, m => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[m]));
+}
+function render(){
+  const q = document.getElementById("searchBox").value.trim().toLowerCase();
+  const list = document.getElementById("courseList");
+  let html = "";
+  let shown = 0;
+
+  data.forEach((c, ci) => {
+    let links = c.links;
+    let matchCourse = c.name.toLowerCase().includes(q);
+    if(q && !matchCourse){
+      links = c.links.filter(l =>
+        l.title.toLowerCase().includes(q) || l.url.toLowerCase().includes(q));
+      if(links.length === 0) return; // khóa không khớp gì → ẩn
+    }
+    shown++;
+    const isOpen = q ? true : c.open; // đang tìm thì mở hết cho dễ thấy
+    html += '<div class="course' + (isOpen ? " open" : "") + '">'
+      + '<div class="course-head" onclick="toggleCourse(' + c.id + ')">'
+      +   '<span class="course-num">' + (ci+1) + '</span>'
+      +   '<span class="caret"></span>'
+      +   '<span class="course-name">' + esc(c.name) + '</span>'
+      +   '<span class="course-count">' + c.links.length + ' link</span>'
+      + '</div>'
+      + '<div class="course-body">';
+
+    if(links.length === 0){
+      html += '<div class="empty" style="padding:14px 0">Chưa có link nào trong khóa này.</div>';
+    }else{
+      links.forEach((l, li) => {
+        html += '<div class="link-item">'
+          + '<span class="link-num">' + (li+1) + '</span>'
+          + '<div class="link-info">'
+          +   '<a href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.title) + '</a>'
+          +   '<div class="link-url">' + esc(l.url) + '</div>'
+          + '</div>'
+          + '<button class="btn-del" onclick="deleteLink(' + c.id + ',' + l.id + ')">Xóa</button>'
+          + '</div>';
+      });
+    }
+
+    html += '<div class="addlink">'
+      + '<div class="row">'
+      +   '<input type="text" id="linkName-' + c.id + '" placeholder="Tên bài (vd: Bài 1 – Giao diện)" onclick="event.stopPropagation()">'
+      +   '<input type="text" id="linkUrl-' + c.id + '" placeholder="https://..." onclick="event.stopPropagation()">'
+      +   '<button class="btn-blue" onclick="addLink(' + c.id + ')">Thêm link</button>'
+      + '</div>'
+      + '<div class="hint">Bỏ trống ô tên thì trang tự lấy tên từ link.</div>'
+      + '</div>'
+      + '<div class="course-actions">'
+      +   '<button class="btn-ghost" onclick="renameCourse(' + c.id + ')">Đổi tên khóa</button> '
+      +   '<button class="btn-del" onclick="deleteCourse(' + c.id + ')">Xóa khóa</button>'
+      + '</div>'
+      + '</div></div>';
+  });
+
+  if(data.length === 0){
+    html = '<div class="empty">Chưa có khóa học nào. Thêm khóa đầu tiên ở ô phía trên.</div>';
+  }else if(shown === 0){
+    html = '<div class="empty">Không tìm thấy khóa hoặc bài nào khớp với "' + esc(q) + '".</div>';
+  }
+
+  list.innerHTML = html;
+
+  const totalLinks = data.reduce((s,c) => s + c.links.length, 0);
+  document.getElementById("statCourses").textContent = data.length;
+  document.getElementById("statLinks").textContent = totalLinks;
+}
+
+/* Enter để thêm nhanh */
+document.getElementById("newCourseName").addEventListener("keydown", e => {
+  if(e.key === "Enter") addCourse();
+});
+document.addEventListener("keydown", e => {
+  if(e.key === "Enter" && e.target.id && e.target.id.startsWith("linkUrl-")){
+    addLink(Number(e.target.id.replace("linkUrl-","")));
+  }
+});
+
+render();
+</script>
+</body>
+</html>
