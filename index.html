@@ -69,6 +69,26 @@
 
   .search{width:100%;margin-bottom:22px}
 
+  /* Hộp vàng nhắc upload (giống trang theo dõi Archive.org) */
+  .banner{
+    display:none;
+    background:#fdf3d8;
+    border:1px solid #ecd9a0;
+    border-radius:10px;
+    padding:16px 18px;
+    margin-bottom:22px;
+    font-size:14px;
+    color:#5c4a12;
+  }
+  .banner b{color:#5c4a12}
+  .banner button{
+    display:block;
+    margin-top:12px;
+    background:#8a6d1a;
+    color:#fff;
+  }
+  .banner button:hover{background:#6f5713}
+
   /* ===== Tầng 1: Khóa học ===== */
   .course{
     border:1px solid var(--border);
@@ -173,10 +193,15 @@
     </div>
   </div>
 
+  <div class="banner" id="dirtyBanner">
+    Bạn vừa sửa danh sách. Tải file mới rồi tải nó lên GitHub (đè lên <b>data.json</b> cũ) để lưu vĩnh viễn.
+    <button onclick="exportJSON()">Tải data.json</button>
+  </div>
+
   <input type="text" class="search" id="searchBox" placeholder="Tìm nhanh khóa, phần hoặc bài học..." oninput="render()">
 
   <div class="toolbar">
-    <button class="btn-ghost" onclick="exportJSON()">Xuất file du-lieu.json</button>
+    <button class="btn-ghost" onclick="exportJSON()">Tải data.json</button>
     <button class="btn-ghost" onclick="document.getElementById('importFile').click()">Nhập file sao lưu</button>
     <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
   </div>
@@ -187,7 +212,7 @@
 <script>
 const STORE_KEY = "thuVienKhoaHoc_v2";
 const OLD_KEY = "thuVienKhoaHoc_v1";
-const DATA_FILE = "du-lieu.json"; // file dữ liệu nằm cùng thư mục với index.html trong repo
+const DATA_FILE = "data.json"; // file dữ liệu nằm cùng thư mục với index.html trong repo
 
 let store = { updatedAt: 0, courses: [] };
 let dirty = false; // có thay đổi chưa upload
@@ -253,13 +278,13 @@ async function init(){
     store = local;
     if(remote && local.updatedAt > remote.updatedAt){
       dirty = true;
-      info.textContent = "Dữ liệu trong máy MỚI HƠN bản trên GitHub — nhớ Xuất file rồi upload đè du-lieu.json.";
-      info.classList.add("warn");
+      showBanner(true);
+      info.textContent = "Dữ liệu trong máy mới hơn bản data.json trên GitHub.";
     }else{
-      info.textContent = "Dữ liệu: bản trong máy" + (remote ? "" : " (chưa tải được du-lieu.json từ repo)");
+      info.textContent = "Dữ liệu: bản trong máy" + (remote ? "" : " (chưa tải được data.json từ repo)");
     }
   }else{
-    info.textContent = "Chưa có dữ liệu. Thêm khóa học đầu tiên, sau đó Xuất file và upload du-lieu.json lên repo.";
+    info.textContent = "Chưa có dữ liệu. Thêm khóa học đầu tiên, sau đó tải data.json lên repo.";
   }
   render();
 }
@@ -277,9 +302,10 @@ function save(){
   store.updatedAt = Date.now();
   saveLocalOnly();
   dirty = true;
-  const info = document.getElementById("sourceInfo");
-  info.textContent = "Có thay đổi chưa đưa lên GitHub — bấm Xuất file rồi upload đè du-lieu.json vào repo.";
-  info.classList.add("warn");
+  showBanner(true);
+}
+function showBanner(on){
+  document.getElementById("dirtyBanner").style.display = on ? "block" : "none";
 }
 function newId(){ return Date.now() + Math.floor(Math.random()*1000); }
 function findCourse(cid){ return store.courses.find(x => x.id === cid); }
@@ -386,13 +412,13 @@ function exportJSON(){
   const blob = new Blob([JSON.stringify(store, null, 2)], {type:"application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "du-lieu.json";
+  a.download = "data.json";
   a.click();
   URL.revokeObjectURL(a.href);
   dirty = false;
+  showBanner(false);
   const info = document.getElementById("sourceInfo");
-  info.textContent = "Đã xuất du-lieu.json — giờ upload file này vào repo (Add file → Upload files) để mọi máy đều thấy.";
-  info.classList.remove("warn");
+  info.textContent = "Đã tải data.json — giờ upload file này vào repo (Add file → Upload files, đè lên data.json cũ).";
 }
 function importJSON(ev){
   const file = ev.target.files[0];
